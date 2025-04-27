@@ -1,57 +1,126 @@
 import { Player } from './player';
-import { Enemy, EnemyOptions } from './enemy';
+import { Enemy, EnemyOptions, EnemyType, MovementPattern, BulletPattern } from './enemy';
 import { Bullet } from './bullet';
-import { circleCollision, Vector2D, randomInt } from './utils';
+import { Vector2D } from './utils';
+import { useBulletHell } from '../stores/useBulletHell';
 import { useAudio } from '../stores/useAudio';
 
-export class GameManager {
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
-  private player: Player;
-  private enemies: Enemy[] = [];
-  private playerBullets: Bullet[] = [];
-  private enemyBullets: Bullet[] = [];
-  private score: number = 0;
-  private level: number = 1;
-  private lives: number = 3;
-  private gameOver: boolean = false;
-  private isPaused: boolean = false;
-  private lastEnemySpawn: number = 0;
-  private enemySpawnRate: number = 2; // Enemies per second
-  private explosions: { position: Vector2D, size: number, time: number }[] = [];
+interface KeyState {
+  [key: string]: boolean;
+}
 
+export class GameManager {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  player: Player | null = null;
+  enemies: Enemy[] = [];
+  playerBullets: Bullet[] = [];
+  enemyBullets: Bullet[] = [];
+  keys: KeyState = {};
+  gameActive: boolean = false;
+  score: number = 0;
+  level: number = 1;
+  lives: number = 3;
+  timeToNextEnemy: number = 0;
+  enemySpawnRate: number = 1; // Enemies per second
+  levelProgressTimer: number = 0;
+  levelDuration: number = 30; // Seconds per level
+  
   constructor(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     this.canvas = canvas;
     this.ctx = ctx;
     
-    // Initialize player in the center bottom of the screen
+    // Initialize canvas size
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+    
+    // Set up keyboard listeners
+    this.setupEventListeners();
+  }
+  
+  private setupEventListeners(): void {
+    // Keyboard controls
+    window.addEventListener('keydown', (e) => {
+      this.keys[e.code] = true;
+      
+      // Prevent default behavior for game controls
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
+        e.preventDefault();
+      }
+    });
+    
+    window.addEventListener('keyup', (e) => {
+      this.keys[e.code] = false;
+    });
+  }
+  
+  startGame(): void {
+    // Reset game state
     this.player = new Player({
       position: { 
-        x: canvas.width / 2, 
-        y: canvas.height - 100 
+        x: this.canvas.width / 2, 
+        y: this.canvas.height - 100 
       },
-      size: 40,
+      size: 32,
       speed: 300,
       fireRate: 5,
       bulletSpeed: 500
     });
     
-    // Set initial canvas size
-    this.handleResize();
+    this.enemies = [];
+    this.playerBullets = [];
+    this.enemyBullets = [];
+    this.score = 0;
+    this.level = 1;
+    this.lives = 3;
+    this.timeToNextEnemy = 0;
+    this.levelProgressTimer = 0;
+    this.gameActive = true;
+    
+    // Update store state
+    this.updateGameState();
+    
+    console.log('Game started!');
   }
-
+  
+  resetGame(): void {
+    this.gameActive = false;
+    this.player = null;
+    this.enemies = [];
+    this.playerBullets = [];
+    this.enemyBullets = [];
+    
+    // Update store
+    useBulletHell.setState({ gameState: 'menu' });
+  }
+  
+  gameOver(): void {
+    this.gameActive = false;
+    
+    // Update store state
+    useBulletHell.setState({ gameState: 'gameover' });
+    
+    console.log('Game over! Final score:', this.score);
+  }
+  
   update(deltaTime: number): void {
-    if (this.gameOver || this.isPaused) return;
+    if (!this.gameActive) return;
+    
+    // Update level progress
+    this.levelProgressTimer += deltaTime;
+    if (this.levelProgressTimer >= this.levelDuration) {
+      this.levelUp();
+    }
     
     // Update player
-    // In a real implementation, you'd get input from keyboard/touch
-    const input = { x: 0, y: 0 }; // Placeholder for input handling
-    this.player.move(input.x, input.y, deltaTime, this.canvas.width, this.canvas.height);
-    
-    // Player shooting
-    if (this.player.canShoot()) {
-      const bullets = this.player.shoot();
-      this.playerBullets.push(...bullets);
+    if (this.player) {
+      this.updatePlayerControls(deltaTime);
+      
+      // Player shooting
+      if (this.keys['Space'] && this.player.canShoot()) {
+        const newBullets = this.player.shoot();
+        this.playerBullets.push(...newBullets);
+      }
     }
     
     // Update bullets
@@ -61,322 +130,343 @@ export class GameManager {
     this.updateEnemies(deltaTime);
     
     // Spawn enemies
-    this.spawnEnemies(deltaTime);
+    this.timeToNextEnemy -= deltaTime;
+    if (this.timeToNextEnemy <= 0) {
+      this.spawnEnemy();
+      this.timeToNextEnemy = 1 / this.enemySpawnRate;
+    }
     
     // Check collisions
     this.checkCollisions();
     
-    // Update explosions
-    this.updateExplosions(deltaTime);
+    // Update game state in the store
+    this.updateGameState();
+  }
+  
+  private updateGameState(): void {
+    useBulletHell.setState({ 
+      score: this.score,
+      lives: this.lives,
+      level: this.level
+    });
+  }
+  
+  private updatePlayerControls(deltaTime: number): void {
+    if (!this.player) return;
     
-    // Check game over condition
-    if (this.lives <= 0) {
-      this.gameOver = true;
+    // Calculate direction based on WASD or arrow keys
+    let dirX = 0;
+    let dirY = 0;
+    
+    if (this.keys['KeyW'] || this.keys['ArrowUp']) {
+      dirY = -1;
     }
+    if (this.keys['KeyS'] || this.keys['ArrowDown']) {
+      dirY = 1;
+    }
+    if (this.keys['KeyA'] || this.keys['ArrowLeft']) {
+      dirX = -1;
+    }
+    if (this.keys['KeyD'] || this.keys['ArrowRight']) {
+      dirX = 1;
+    }
+    
+    // Update player position
+    this.player.move(dirX, dirY, deltaTime, this.canvas.width, this.canvas.height);
   }
-
-  render(): void {
-    // Clear canvas
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    // Render player
-    this.player.render(this.ctx);
-    
-    // Render bullets
-    [...this.playerBullets, ...this.enemyBullets].forEach(bullet => {
-      bullet.render(this.ctx);
-    });
-    
-    // Render enemies
-    this.enemies.forEach(enemy => {
-      enemy.render(this.ctx);
-    });
-    
-    // Render explosions
-    this.renderExplosions();
-    
-    // Render UI (score, lives, etc.)
-    this.renderUI();
-  }
-
+  
   private updateBullets(deltaTime: number): void {
     // Update player bullets
-    this.playerBullets = this.playerBullets.filter(bullet => {
+    for (let i = this.playerBullets.length - 1; i >= 0; i--) {
+      const bullet = this.playerBullets[i];
       bullet.update(deltaTime);
-      return bullet.active && !bullet.isOutOfBounds(this.canvas.width, this.canvas.height);
-    });
+      
+      // Remove bullets that are out of bounds or inactive
+      if (!bullet.active || bullet.isOutOfBounds(this.canvas.width, this.canvas.height)) {
+        this.playerBullets.splice(i, 1);
+      }
+    }
     
     // Update enemy bullets
-    this.enemyBullets = this.enemyBullets.filter(bullet => {
+    for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
+      const bullet = this.enemyBullets[i];
       bullet.update(deltaTime);
-      return bullet.active && !bullet.isOutOfBounds(this.canvas.width, this.canvas.height);
-    });
+      
+      // Remove bullets that are out of bounds or inactive
+      if (!bullet.active || bullet.isOutOfBounds(this.canvas.width, this.canvas.height)) {
+        this.enemyBullets.splice(i, 1);
+      }
+    }
   }
-
+  
   private updateEnemies(deltaTime: number): void {
-    this.enemies = this.enemies.filter(enemy => {
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+      const enemy = this.enemies[i];
       enemy.update(deltaTime, this.canvas.width);
       
       // Enemy shooting
       if (enemy.canShoot()) {
-        const bullets = enemy.shoot();
-        this.enemyBullets.push(...bullets);
+        const newBullets = enemy.shoot();
+        this.enemyBullets.push(...newBullets);
       }
       
-      // Remove enemies that are out of bounds or not active
-      return enemy.active && !enemy.isOutOfBounds(this.canvas.height);
-    });
-  }
-
-  private spawnEnemies(deltaTime: number): void {
-    this.lastEnemySpawn += deltaTime;
-    
-    // Spawn rate increases with level
-    const spawnInterval = 1 / (this.enemySpawnRate + (this.level * 0.2));
-    
-    if (this.lastEnemySpawn >= spawnInterval) {
-      this.lastEnemySpawn = 0;
-      
-      // Create enemy options
-      const enemyOptions: EnemyOptions = {
-        position: { 
-          x: randomInt(50, this.canvas.width - 50), 
-          y: -50 
-        },
-        type: Math.random() > 0.8 ? 'spinner' : 'standard',
-        health: 1 + Math.floor(this.level / 3),
-        speed: 50 + (this.level * 5),
-        size: 40,
-        scoreValue: 100,
-        movementPattern: Math.random() > 0.7 ? 'sine' : 'linear',
-        bulletPattern: 'single',
-        fireRate: 0.5 + (this.level * 0.1),
-        bulletSpeed: 200,
-        bulletDamage: 1
-      };
-      
-      // Spawn boss every 5 levels
-      if (this.level % 5 === 0 && this.enemies.length < 5) {
-        enemyOptions.type = 'boss';
-        enemyOptions.health = 10 + (this.level * 2);
-        enemyOptions.size = 80;
-        enemyOptions.scoreValue = 1000;
-        enemyOptions.bulletPattern = 'spread';
+      // Remove enemies that are out of bounds or inactive
+      if (!enemy.active || enemy.isOutOfBounds(this.canvas.height)) {
+        this.enemies.splice(i, 1);
       }
-      
-      this.enemies.push(new Enemy(enemyOptions));
     }
   }
-
+  
+  private spawnEnemy(): void {
+    // Calculate spawn parameters based on level
+    const spawnConfig = this.getEnemySpawnConfig();
+    
+    // Ensure type is always present and not undefined
+    const enemyOptions: EnemyOptions = {
+      position: { x: Math.random() * (this.canvas.width - 50) + 25, y: -30 },
+      ...(spawnConfig as Omit<EnemyOptions, 'position' | 'type'>),
+      type: spawnConfig.type as EnemyType, // type is guaranteed by logic above
+    };
+    
+    this.enemies.push(new Enemy(enemyOptions));
+  }
+  
+  private getEnemySpawnConfig(): Partial<EnemyOptions> {
+    // Base configurations
+    const baseConfig: Partial<EnemyOptions> = {
+      type: 'standard',
+      health: 1,
+      speed: 100,
+      size: 24,
+      scoreValue: 100,
+      movementPattern: 'linear',
+      bulletPattern: 'single',
+      fireRate: 1,
+      bulletSpeed: 200,
+      bulletDamage: 1
+    };
+    
+    // Adjust based on level
+    const levelMultiplier = 1 + (this.level - 1) * 0.2; // 20% increase per level
+    
+    // Random enemy type based on level
+    const enemyTypes: EnemyType[] = ['standard', 'spinner', 'boss'];
+    let typeIndex = 0;
+    
+    // Higher level = more chance of harder enemies
+    if (this.level >= 3) {
+      const rand = Math.random();
+      if (rand < 0.6) typeIndex = 0; // standard (60%)
+      else if (rand < 0.9) typeIndex = 1; // spinner (30%)
+      else typeIndex = 2; // boss (10%)
+    } else if (this.level >= 2) {
+      typeIndex = Math.random() < 0.7 ? 0 : 1; // 70% standard, 30% spinner
+    }
+    
+    const type = enemyTypes[typeIndex];
+    
+    // Adjust parameters based on enemy type
+    let config: Partial<EnemyOptions> = { ...baseConfig, type };
+    
+    switch (type) {
+      case 'standard':
+        // Default stats
+        break;
+      case 'spinner':
+        config = {
+          ...config,
+          health: 2,
+          speed: 80,
+          scoreValue: 200,
+          movementPattern: Math.random() < 0.5 ? 'sine' : 'zigzag',
+          bulletPattern: 'spread',
+          fireRate: 1.5
+        };
+        break;
+      case 'boss':
+        config = {
+          ...config,
+          health: 10,
+          speed: 50,
+          size: 40,
+          scoreValue: 500,
+          movementPattern: 'circle',
+          bulletPattern: Math.random() < 0.5 ? 'circle' : 'spiral',
+          fireRate: 2,
+          bulletSpeed: 150,
+          bulletDamage: 2
+        };
+        break;
+    }
+    
+    // Apply level scaling
+    config.health = Math.ceil((config.health || 1) * levelMultiplier);
+    config.speed = Math.ceil((config.speed || 100) * (1 + (this.level - 1) * 0.1));
+    config.bulletSpeed = Math.ceil((config.bulletSpeed || 200) * (1 + (this.level - 1) * 0.05));
+    config.scoreValue = Math.ceil((config.scoreValue || 100) * levelMultiplier);
+    
+    // Random selection for movement and bullet patterns
+    const movementPatterns: MovementPattern[] = ['linear', 'sine', 'circle', 'zigzag'];
+    const bulletPatterns: BulletPattern[] = ['single', 'spread', 'circle', 'spiral'];
+    
+    if (Math.random() < 0.7) { // 70% chance to randomize patterns further
+      config.movementPattern = movementPatterns[Math.floor(Math.random() * movementPatterns.length)];
+      if (type !== 'standard') { // Standard enemies always have simpler bullet patterns
+        config.bulletPattern = bulletPatterns[Math.floor(Math.random() * bulletPatterns.length)];
+      }
+    }
+    
+    return config;
+  }
+  
+  private levelUp(): void {
+    this.level++;
+    this.levelProgressTimer = 0;
+    
+    // Increase difficulty
+    this.enemySpawnRate = Math.min(5, 1 + (this.level - 1) * 0.5); // Cap at 5 enemies per second
+    this.levelDuration = Math.max(20, 30 - (this.level - 1) * 2); // Minimum 20 seconds per level
+    
+    // Play level up sound
+    useAudio.getState().playSuccess();
+    
+    console.log(`Level up! Now at level ${this.level}`);
+  }
+  
   private checkCollisions(): void {
-    // Player bullets vs enemies
-    this.playerBullets.forEach(bullet => {
-      this.enemies.forEach(enemy => {
-        if (bullet.active && enemy.active) {
-          if (circleCollision(
-            bullet.position, bullet.radius,
-            enemy.position, enemy.size / 2
-          )) {
-            // Bullet hit enemy
-            bullet.active = false;
-            enemy.takeDamage(bullet.damage);
-            
-            // Add explosion if enemy is destroyed
-            if (!enemy.active) {
-              this.score += enemy.scoreValue;
-              this.addExplosion(enemy.position, enemy.size);
-              
-              // Level up based on score
-              this.level = Math.floor(this.score / 5000) + 1;
-            }
-          }
-        }
-      });
-    });
+    if (!this.player || !this.gameActive) return;
     
-    // Enemy bullets vs player
-    if (!this.player.isInvulnerable) {
-      this.enemyBullets.forEach(bullet => {
-        if (bullet.active) {
-          if (circleCollision(
-            bullet.position, bullet.radius,
-            this.player.position, this.player.hitRadius
-          )) {
-            // Bullet hit player
-            bullet.active = false;
-            this.lives--;
-            
-            // Make player invulnerable for a short time
-            this.player.setInvulnerable(2);
-            
-            // Add explosion
-            this.addExplosion(this.player.position, this.player.size);
+    // Check player bullets against enemies
+    for (let i = this.playerBullets.length - 1; i >= 0; i--) {
+      const bullet = this.playerBullets[i];
+      
+      for (let j = this.enemies.length - 1; j >= 0; j--) {
+        const enemy = this.enemies[j];
+        
+        // Simple circle collision detection
+        const dx = bullet.position.x - enemy.position.x;
+        const dy = bullet.position.y - enemy.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < bullet.radius + enemy.size / 2) {
+          // Collision detected
+          enemy.takeDamage(bullet.damage);
+          bullet.active = false;
+          
+          // Add score if enemy is destroyed
+          if (!enemy.active) {
+            this.score += enemy.scoreValue;
+            useAudio.getState().playHit();
           }
+          
+          break; // Bullet can only hit one enemy
         }
-      });
+      }
     }
     
-    // Enemies vs player (collision damage)
-    if (!this.player.isInvulnerable) {
-      this.enemies.forEach(enemy => {
-        if (enemy.active) {
-          if (circleCollision(
-            enemy.position, enemy.size / 2,
-            this.player.position, this.player.hitRadius
-          )) {
-            // Enemy hit player
-            enemy.active = false;
-            this.lives--;
-            
-            // Make player invulnerable for a short time
-            this.player.setInvulnerable(2);
-            
-            // Add explosions
-            this.addExplosion(enemy.position, enemy.size);
-            this.addExplosion(this.player.position, this.player.size);
-          }
-        }
-      });
+    // Check enemy bullets against player
+    for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
+      const bullet = this.enemyBullets[i];
+      
+      // Simple circle collision detection
+      const dx = bullet.position.x - this.player.position.x;
+      const dy = bullet.position.y - this.player.position.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance < bullet.radius + this.player.hitRadius) {
+        // Collision detected
+        bullet.active = false;
+        this.playerHit();
+        break;
+      }
     }
   }
-
-  private addExplosion(position: Vector2D, size: number): void {
-    this.explosions.push({
-      position: { ...position },
-      size: size,
-      time: 0
-    });
-  }
-
-  private updateExplosions(deltaTime: number): void {
-    this.explosions = this.explosions.filter(explosion => {
-      explosion.time += deltaTime;
-      return explosion.time < 0.5; // Explosion lasts for 0.5 seconds
-    });
-  }
-
-  private renderExplosions(): void {
-    this.explosions.forEach(explosion => {
-      const sprite = {
-        width: explosion.size * 1.5,
-        height: explosion.size * 1.5
+  
+  private playerHit(): void {
+    if (!this.player) return;
+    
+    // Play hit sound
+    useAudio.getState().playHit();
+    
+    // Reduce player lives
+    this.lives--;
+    
+    // Check game over
+    if (this.lives <= 0) {
+      this.gameOver();
+    } else {
+      // Reset player position
+      this.player.position = {
+        x: this.canvas.width / 2,
+        y: this.canvas.height - 100
       };
       
-      // Use the explosion sprite from your sprite class
-      const explosionSprite = sprite;
-      this.ctx.fillStyle = '#FFA500';
-      this.ctx.beginPath();
-      this.ctx.arc(explosion.position.x, explosion.position.y, explosionSprite.width / 2, 0, Math.PI * 2);
-      this.ctx.fill();
+      // Give temporary invulnerability (implemented in Player class)
+      this.player.setInvulnerable(2); // 2 seconds of invulnerability
+    }
+  }
+  
+  render(): void {
+    // Clear canvas
+    this.ctx.fillStyle = '#1A1A1A';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Draw grid background
+    this.renderGridBackground();
+    
+    // Draw player
+    if (this.player && this.gameActive) {
+      this.player.render(this.ctx);
+    }
+    
+    // Draw enemies
+    this.enemies.forEach(enemy => {
+      enemy.render(this.ctx);
+    });
+    
+    // Draw player bullets
+    this.playerBullets.forEach(bullet => {
+      bullet.render(this.ctx);
+    });
+    
+    // Draw enemy bullets
+    this.enemyBullets.forEach(bullet => {
+      bullet.render(this.ctx);
     });
   }
-
-  private renderUI(): void {
-    // Render score
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = '20px Arial';
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText(`Score: ${this.score}`, 20, 30);
+  
+  private renderGridBackground(): void {
+    const gridSize = 40;
+    const gridOpacity = 0.2;
     
-    // Render level
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText(`Level: ${this.level}`, this.canvas.width / 2, 30);
+    this.ctx.strokeStyle = `rgba(0, 255, 255, ${gridOpacity})`;
+    this.ctx.lineWidth = 1;
     
-    // Render lives
-    this.ctx.textAlign = 'right';
-    this.ctx.fillText(`Lives: ${this.lives}`, this.canvas.width - 20, 30);
+    // Draw vertical lines
+    for (let x = 0; x < this.canvas.width; x += gridSize) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, 0);
+      this.ctx.lineTo(x, this.canvas.height);
+      this.ctx.stroke();
+    }
     
-    // Render game over message
-    if (this.gameOver) {
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-      
-      this.ctx.fillStyle = '#FF3366';
-      this.ctx.font = '48px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText('GAME OVER', this.canvas.width / 2, this.canvas.height / 2 - 40);
-      
-      this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.font = '24px Arial';
-      this.ctx.fillText(`Final Score: ${this.score}`, this.canvas.width / 2, this.canvas.height / 2 + 20);
+    // Draw horizontal lines
+    for (let y = 0; y < this.canvas.height; y += gridSize) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(this.canvas.width, y);
+      this.ctx.stroke();
     }
   }
-
+  
   handleResize(): void {
-    // Update canvas size
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
-    
-    // Reposition player
+    // Update player position when canvas is resized
     if (this.player) {
-      this.player.position.y = this.canvas.height - 100;
+      // Keep player at bottom center
+      this.player.position = {
+        x: this.canvas.width / 2,
+        y: this.canvas.height - 100,
+      };
     }
-  }
-
-  // Public methods for game control
-  pauseGame(): void {
-    this.isPaused = true;
-  }
-
-  resumeGame(): void {
-    this.isPaused = false;
-  }
-
-  resetGame(): void {
-    this.enemies = [];
-    this.playerBullets = [];
-    this.enemyBullets = [];
-    this.explosions = [];
-    this.score = 0;
-    this.level = 1;
-    this.lives = 3;
-    this.gameOver = false;
-    this.isPaused = false;
-    
-    // Reset player position
-    this.player.position = { 
-      x: this.canvas.width / 2, 
-      y: this.canvas.height - 100 
-    };
-  }
-
-  // Getters for game state
-  getScore(): number {
-    return this.score;
-  }
-
-  getLevel(): number {
-    return this.level;
-  }
-
-  getLives(): number {
-    return this.lives;
-  }
-
-  isGameOver(): boolean {
-    return this.gameOver;
-  }
-
-  start(): void {
-    this.resetGame();
-    this.gameOver = false;
-    this.isPaused = false;
-    
-    // Reposition player at the start
-    this.player.position = { 
-      x: this.canvas.width / 2, 
-      y: this.canvas.height - 100 
-    };
-    
-    // Play background music if available and not muted
-    const audio = useAudio.getState();
-    if (audio.backgroundMusic && !audio.isMuted) {
-      audio.backgroundMusic.currentTime = 0;
-      audio.backgroundMusic.play().catch(error => {
-        console.log("Background music play prevented:", error);
-      });
-    }
-
-    // Optionally, update UI state or trigger any other start-of-game logic here
   }
 }

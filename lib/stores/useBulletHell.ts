@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameManager } from '../game/game-manager';
+import { GameManager } from '@/lib/game/game-manager';
 import { useAudio } from './useAudio';
 
 export type GameState = 'menu' | 'playing' | 'gameover';
@@ -35,7 +35,7 @@ export const useBulletHell = create<BulletHellStore>((set, get) => ({
   startGame: () => {
     const { gameManager } = get();
     if (gameManager) {
-      gameManager.start();
+      gameManager.startGame();
       
       // Start background music
       const audio = useAudio.getState();
