@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAudio } from '../../lib/stores/useAudio';
 import { useBulletHell } from '../../lib/stores/useBulletHell';
 import GameCanvas from './GameCanvas';
@@ -38,7 +38,14 @@ const BulletHellGame = ({ className = "" }: BulletHellGameProps) => {
       hit.pause();
       success.pause();
     };
-  }, [setBackgroundMusic, setHitSound, setSuccessSound]);
+  }, [
+    setBackgroundMusic,
+    setHitSound,
+    setSuccessSound,
+    setBackgroundAudio,
+    setHitAudio,
+    setSuccessAudio
+  ]);
 
   return (
     <div className={`relative w-full h-full bg-[#1A1A1A] overflow-hidden ${className}`}>

@@ -5,9 +5,9 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const getLocalStorage = (key: string): any =>
+const getLocalStorage = <T = unknown>(key: string): T | null =>
   JSON.parse(window.localStorage.getItem(key) || "null");
-const setLocalStorage = (key: string, value: any): void =>
+const setLocalStorage = (key: string, value: unknown): void =>
   window.localStorage.setItem(key, JSON.stringify(value));
 
 export { getLocalStorage, setLocalStorage };
