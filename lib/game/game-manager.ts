@@ -1,7 +1,6 @@
 import { Player } from './player';
 import { Enemy, EnemyOptions, EnemyType, MovementPattern, BulletPattern } from './enemy';
 import { Bullet } from './bullet';
-import { Vector2D } from './utils';
 import { useBulletHell } from '../stores/useBulletHell';
 import { useAudio } from '../stores/useAudio';
 
