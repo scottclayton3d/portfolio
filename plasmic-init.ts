@@ -27,7 +27,5 @@ export const PLASMIC = initPlasmicLoader({
 PLASMIC.registerComponent(BulletHellGame, {
   name: 'BulletHellGame',
   props: {
-    verbose: 'boolean',
-    children: 'slot'
   }
 });

@@ -6,7 +6,11 @@ import GameUI from './GameUI';
 import StartMenu from './StartMenu';
 import GameOver from './GameOver';
 
-const BulletHellGame = () => {
+export interface BulletHellGameProps {
+  className?: string;
+}
+
+const BulletHellGame = ({ className = "" }: BulletHellGameProps) => {
   const [backgroundAudio, setBackgroundAudio] = useState<HTMLAudioElement | null>(null);
   const [hitAudio, setHitAudio] = useState<HTMLAudioElement | null>(null);
   const [successAudio, setSuccessAudio] = useState<HTMLAudioElement | null>(null);
@@ -39,7 +43,7 @@ const BulletHellGame = () => {
   }, [setBackgroundMusic, setHitSound, setSuccessSound]);
 
   return (
-    <div className="relative w-full h-full bg-[#1A1A1A] overflow-hidden">
+    <div className={`relative w-full h-full bg-[#1A1A1A] overflow-hidden ${className}`}>
       {/* Game Canvas - always render to keep game loop running */}
       <GameCanvas />
       

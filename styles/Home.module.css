@@ -163,3 +163,48 @@ a.secondary {
     filter: invert();
   }
 }
+
+/* Pixel font styling */
+.pixel-font {
+  font-family: 'Press Start 2P', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.5px;
+}
+
+.game-title {
+  font-family: 'Press Start 2P', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 32px;
+  text-shadow: 0 0 10px #FF3366, 0 0 20px #FF3366;
+  color: #FFFFFF;
+}
+
+.game-text {
+  font-family: 'Press Start 2P', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 16px;
+  color: #FFFFFF;
+}
+
+.score-text {
+  font-family: 'Press Start 2P', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  color: #FFD700;
+}
+
+.health-text {
+  font-family: 'Press Start 2P', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  color: #FF3366;
+}
+
+.menu-text {
+  font-family: 'Press Start 2P', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 18px;
+  color: #00FFFF;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.menu-text:hover {
+  color: #FFFFFF;
+  text-shadow: 0 0 8px #00FFFF, 0 0 16px #00FFFF;
+  transform: scale(1.05);
+}
