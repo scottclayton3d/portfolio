@@ -48,7 +48,10 @@ const BulletHellGame = ({ className = "" }: BulletHellGameProps) => {
   ]);
 
   return (
-    <div className={`relative w-full h-full bg-[#1A1A1A] overflow-hidden ${className}`}>
+    <div
+      className={`relative w-full h-full max-w-[900px] max-h-[700px] bg-[#1A1A1A] overflow-hidden ${className}`}
+      style={{ margin: '0 auto' }} // Optional: center the game horizontally
+    >
       {/* Game Canvas - always render to keep game loop running */}
       <GameCanvas />
       
