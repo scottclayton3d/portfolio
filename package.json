@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@plasmicapp/loader-nextjs": "^1.0.422",
-    "@react-three/drei": "^10.0.7",
+    "@react-three/drei": "^9.89.3",
     "@react-three/fiber": "^9.1.2",
     "lucide-react": "^0.503.0",
     "next": "14.2.28",
