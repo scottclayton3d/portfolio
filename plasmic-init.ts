@@ -1,5 +1,6 @@
 import { initPlasmicLoader } from "@plasmicapp/loader-nextjs";
 import BulletHellGame from "./components/game/BulletHellGame";
+import ModelViewer3D from "./components/ui/ModelViewer3D";
 
 export const PLASMIC = initPlasmicLoader({
   projects: [
@@ -27,5 +28,11 @@ export const PLASMIC = initPlasmicLoader({
 PLASMIC.registerComponent(BulletHellGame, {
   name: 'BulletHellGame',
   props: {
+  }
+});
+PLASMIC.registerComponent(ModelViewer3D, {
+  name: 'Model Viewer 3d',
+  props: {
+    modelUrl: "string",
   }
 });
