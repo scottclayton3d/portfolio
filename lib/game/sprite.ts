@@ -35,14 +35,11 @@ export interface SpriteSize {
         if (svgElement) {
           // Create a temporary SVG image
           const svgData = new XMLSerializer().serializeToString(svgElement);
-          const img = new Image();
           
           // Use a data URL to draw the SVG
           const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
           const url = URL.createObjectURL(svgBlob);
           
-          // Draw the image directly (this is synchronous, no need to wait for onload)
-          const existingImage = ctx.createImageData(this.width, this.height);
           
           // For pixel art style, draw using primitive shapes based on the SVG ID
           if (this.svgId === '#player-ship') {

@@ -11,9 +11,7 @@ export interface BulletHellGameProps {
 }
 
 const BulletHellGame = ({ className = "" }: BulletHellGameProps) => {
-  const [backgroundAudio, setBackgroundAudio] = useState<HTMLAudioElement | null>(null);
-  const [hitAudio, setHitAudio] = useState<HTMLAudioElement | null>(null);
-  const [successAudio, setSuccessAudio] = useState<HTMLAudioElement | null>(null);
+  const { setBackgroundMusic: setBackgroundAudio, setHitSound: setHitAudio, setSuccessSound: setSuccessAudio } = useAudio();
   const { setBackgroundMusic, setHitSound, setSuccessSound } = useAudio();
   const gameState = useBulletHell((state: { gameState: string }) => state.gameState);
 

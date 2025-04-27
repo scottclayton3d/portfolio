@@ -5,7 +5,6 @@ import { GameManager } from '../../lib/game/game-manager';
 const GameCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameManagerRef = useRef<GameManager | null>(null);
-  const gameState = useBulletHell((state: { gameState: any }) => state.gameState);
   const setGameManager = useBulletHell((state: { setGameManager: (manager: GameManager) => void }) => state.setGameManager);
 
   // Initialize game engine

@@ -1,5 +1,5 @@
 import { Vector2D } from './utils';
-import { Bullet, BulletOptions } from './bullet';
+import { Bullet } from './bullet';
 import { Sprite } from './sprite';
 
 export type EnemyType = 'standard' | 'spinner' | 'boss';

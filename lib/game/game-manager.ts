@@ -2,12 +2,7 @@ import { Player } from './player';
 import { Enemy, EnemyOptions } from './enemy';
 import { Bullet } from './bullet';
 import { circleCollision, Vector2D, randomInt } from './utils';
-import { useBulletHell } from '../stores/useBulletHell';
 import { useAudio } from '../stores/useAudio';
-
-interface KeyState {
-  [key: string]: boolean;
-}
 
 export class GameManager {
   private canvas: HTMLCanvasElement;
