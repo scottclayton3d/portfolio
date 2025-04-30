@@ -86,11 +86,6 @@ export class Enemy {
     
     // Update position based on movement pattern
     this.updateMovement(deltaTime, canvasWidth, canvasHeight);
-    
-    // Check if enemy is out of bounds
-    if (this.position.y > canvasHeight + this.size) {
-      this.isActive = false;
-    }
   }
   
   private updateAnimation(deltaTime: number): void {
