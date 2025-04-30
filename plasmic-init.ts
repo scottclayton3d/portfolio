@@ -2,7 +2,6 @@ import { initPlasmicLoader } from "@plasmicapp/loader-nextjs";
 import BulletHellGame from "./components/game/BulletHellGame";
 import ModelViewer3D from "./components/ui/ModelViewer3D";
 import ProjectCard from "./components/ui/ProjectCard";
-import ProjectsSection from "./components/ui/ProjectSection";
 
 export const PLASMIC = initPlasmicLoader({
   projects: [
@@ -38,12 +37,6 @@ PLASMIC.registerComponent(ProjectCard, {
   props: {
     project: 'object',
     className:'string',
-  }
-});
-PLASMIC.registerComponent(ProjectsSection, {
-  name: 'ProjectsSection',
-  props: {
-    className: 'string'
   }
 });
 PLASMIC.registerComponent(ModelViewer3D, {
