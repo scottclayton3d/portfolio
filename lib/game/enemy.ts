@@ -76,7 +76,7 @@ export class Enemy {
     }
   }
   
-  update(deltaTime: number, canvasWidth: number, canvasHeight: number): void {
+  update(deltaTime: number, canvasWidth: number, _canvasHeight: number): void {
     // Update timers
     this.timeSinceLastShot += deltaTime;
     this.movementTime += deltaTime;
@@ -85,7 +85,9 @@ export class Enemy {
     this.updateAnimation(deltaTime);
     
     // Update position based on movement pattern
-    this.updateMovement(deltaTime, canvasWidth, canvasHeight);
+    this.updateMovement(deltaTime, canvasWidth, _canvasHeight);
+
+    // Removed: out-of-bounds check here, handled by isOutOfBounds elsewhere
   }
   
   private updateAnimation(deltaTime: number): void {
