@@ -76,7 +76,7 @@ export class Enemy {
     }
   }
   
-  update(deltaTime: number, canvasWidth: number, _canvasHeight: number): void {
+  update(deltaTime: number, canvasWidth: number): void {
     // Update timers
     this.timeSinceLastShot += deltaTime;
     this.movementTime += deltaTime;
