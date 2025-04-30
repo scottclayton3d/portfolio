@@ -1,8 +1,26 @@
 import { Player } from './player';
-import { Enemy, EnemyOptions, EnemyType, MovementPattern, BulletPattern } from './enemy';
+import { Enemy, EnemyType } from './enemy';
 import { Bullet } from './bullet';
 import { useBulletHell } from '../stores/useBulletHell';
 import { useAudio } from '../stores/useAudio';
+
+// Define missing types
+export type MovementPattern = 'linear' | 'sine' | 'circle' | 'zigzag';
+export type BulletPattern = 'single' | 'spread' | 'circle' | 'spiral';
+
+export interface EnemyOptions {
+  position: { x: number; y: number };
+  type: EnemyType;
+  health?: number;
+  speed?: number;
+  size?: number;
+  scoreValue?: number;
+  movementPattern?: MovementPattern;
+  bulletPattern?: BulletPattern;
+  fireRate?: number;
+  bulletSpeed?: number;
+  bulletDamage?: number;
+}
 
 interface KeyState {
   [key: string]: boolean;
@@ -201,16 +219,16 @@ export class GameManager {
   private updateEnemies(deltaTime: number): void {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
-      enemy.update(deltaTime, this.canvas.width);
+      enemy.update(deltaTime, this.canvas.width, this.canvas.height);
       
       // Enemy shooting
-      if (enemy.canShoot()) {
-        const newBullets = enemy.shoot();
+      if (enemy.canShoot() && this.player) {
+        const newBullets = enemy.shoot(this.player.position);
         this.enemyBullets.push(...newBullets);
       }
       
       // Remove enemies that are out of bounds or inactive
-      if (!enemy.active || enemy.isOutOfBounds(this.canvas.height)) {
+      if (!enemy.isActive || enemy.isOutOfBounds(this.canvas.height)) {
         this.enemies.splice(i, 1);
       }
     }
@@ -220,11 +238,19 @@ export class GameManager {
     // Calculate spawn parameters based on level
     const spawnConfig = this.getEnemySpawnConfig();
     
-    // Ensure type is always present and not undefined
-    const enemyOptions: EnemyOptions = {
+    // Create enemy options with all required properties
+    const enemyOptions = {
       position: { x: Math.random() * (this.canvas.width - 50) + 25, y: -30 },
-      ...(spawnConfig as Omit<EnemyOptions, 'position' | 'type'>),
-      type: spawnConfig.type as EnemyType, // type is guaranteed by logic above
+      type: spawnConfig.type || EnemyType.BASIC,
+      size: spawnConfig.size || 24,
+      health: spawnConfig.health || 1,
+      speed: spawnConfig.speed || 100,
+      scoreValue: spawnConfig.scoreValue || 100,
+      movementPattern: spawnConfig.movementPattern || 'linear',
+      bulletPattern: spawnConfig.bulletPattern || 'single',
+      fireRate: spawnConfig.fireRate || 1,
+      bulletSpeed: spawnConfig.bulletSpeed || 200,
+      bulletDamage: spawnConfig.bulletDamage || 1
     };
     
     this.enemies.push(new Enemy(enemyOptions));
@@ -233,7 +259,7 @@ export class GameManager {
   private getEnemySpawnConfig(): Partial<EnemyOptions> {
     // Base configurations
     const baseConfig: Partial<EnemyOptions> = {
-      type: 'standard',
+      type: EnemyType.BASIC,
       health: 1,
       speed: 100,
       size: 24,
@@ -249,17 +275,17 @@ export class GameManager {
     const levelMultiplier = 1 + (this.level - 1) * 0.2; // 20% increase per level
     
     // Random enemy type based on level
-    const enemyTypes: EnemyType[] = ['standard', 'spinner', 'boss'];
+    const enemyTypes: EnemyType[] = [EnemyType.BASIC, EnemyType.SPINNER, EnemyType.BOSS];
     let typeIndex = 0;
     
     // Higher level = more chance of harder enemies
     if (this.level >= 3) {
       const rand = Math.random();
-      if (rand < 0.6) typeIndex = 0; // standard (60%)
+      if (rand < 0.6) typeIndex = 0; // basic (60%)
       else if (rand < 0.9) typeIndex = 1; // spinner (30%)
       else typeIndex = 2; // boss (10%)
     } else if (this.level >= 2) {
-      typeIndex = Math.random() < 0.7 ? 0 : 1; // 70% standard, 30% spinner
+      typeIndex = Math.random() < 0.7 ? 0 : 1; // 70% basic, 30% spinner
     }
     
     const type = enemyTypes[typeIndex];
@@ -268,10 +294,10 @@ export class GameManager {
     let config: Partial<EnemyOptions> = { ...baseConfig, type };
     
     switch (type) {
-      case 'standard':
+      case EnemyType.BASIC:
         // Default stats
         break;
-      case 'spinner':
+      case EnemyType.SPINNER:
         config = {
           ...config,
           health: 2,
@@ -282,7 +308,7 @@ export class GameManager {
           fireRate: 1.5
         };
         break;
-      case 'boss':
+      case EnemyType.BOSS:
         config = {
           ...config,
           health: 10,
@@ -310,7 +336,7 @@ export class GameManager {
     
     if (Math.random() < 0.7) { // 70% chance to randomize patterns further
       config.movementPattern = movementPatterns[Math.floor(Math.random() * movementPatterns.length)];
-      if (type !== 'standard') { // Standard enemies always have simpler bullet patterns
+      if (type !== EnemyType.BASIC) { // Basic enemies always have simpler bullet patterns
         config.bulletPattern = bulletPatterns[Math.floor(Math.random() * bulletPatterns.length)];
       }
     }
@@ -353,7 +379,7 @@ export class GameManager {
           bullet.active = false;
           
           // Add score if enemy is destroyed
-          if (!enemy.active) {
+          if (!enemy.isActive) {
             this.score += enemy.scoreValue;
             useAudio.getState().playHit();
           }
@@ -400,72 +426,93 @@ export class GameManager {
         y: this.canvas.height - 100
       };
       
-      // Give temporary invulnerability (implemented in Player class)
-      this.player.setInvulnerable(2); // 2 seconds of invulnerability
+      // Make player temporarily invulnerable
+      this.player.isInvulnerable = true;
+      this.player.invulnerabilityTime = 2; // 2 seconds of invulnerability
     }
   }
   
-  render(): void {
-    // Clear canvas
-    this.ctx.fillStyle = '#1A1A1A';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+  // Add this method to the GameManager class
+  handleResize(): void {
+    // Update canvas size
+    this.canvas.width = this.canvas.clientWidth;
+    this.canvas.height = this.canvas.clientHeight;
     
-    // Draw grid background
-    this.renderGridBackground();
+    // Adjust player position if needed
+    if (this.player) {
+      // Keep player at the bottom center
+      this.player.position.x = this.canvas.width / 2;
+      this.player.position.y = this.canvas.height - 100;
+    }
+  }
+  
+  // Add this method to improve the render function
+  render(): void {
+    if (!this.ctx) return;
+    
+    // Clear the canvas
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Draw background (stars or grid)
+    this.drawBackground();
     
     // Draw player
-    if (this.player && this.gameActive) {
+    if (this.player) {
       this.player.render(this.ctx);
     }
     
     // Draw enemies
-    this.enemies.forEach(enemy => {
+    for (const enemy of this.enemies) {
       enemy.render(this.ctx);
-    });
-    
-    // Draw player bullets
-    this.playerBullets.forEach(bullet => {
-      bullet.render(this.ctx);
-    });
-    
-    // Draw enemy bullets
-    this.enemyBullets.forEach(bullet => {
-      bullet.render(this.ctx);
-    });
-  }
-  
-  private renderGridBackground(): void {
-    const gridSize = 40;
-    const gridOpacity = 0.2;
-    
-    this.ctx.strokeStyle = `rgba(0, 255, 255, ${gridOpacity})`;
-    this.ctx.lineWidth = 1;
-    
-    // Draw vertical lines
-    for (let x = 0; x < this.canvas.width; x += gridSize) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(x, 0);
-      this.ctx.lineTo(x, this.canvas.height);
-      this.ctx.stroke();
     }
     
-    // Draw horizontal lines
-    for (let y = 0; y < this.canvas.height; y += gridSize) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, y);
-      this.ctx.lineTo(this.canvas.width, y);
-      this.ctx.stroke();
+    // Draw bullets
+    for (const bullet of this.playerBullets) {
+      bullet.render(this.ctx);
+    }
+    
+    for (const bullet of this.enemyBullets) {
+      bullet.render(this.ctx);
     }
   }
   
-  handleResize(): void {
-    // Update player position when canvas is resized
-    if (this.player) {
-      // Keep player at bottom center
-      this.player.position = {
-        x: this.canvas.width / 2,
-        y: this.canvas.height - 100,
-      };
+  // Add a background drawing method
+  private drawBackground(): void {
+    // Draw a starfield or grid background
+    const ctx = this.ctx;
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    
+    // Draw stars
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    for (let i = 0; i < 100; i++) {
+      const x = Math.random() * width;
+      const y = Math.random() * height;
+      const size = Math.random() * 2 + 1;
+      
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Optional: Draw grid lines
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    
+    // Vertical lines
+    for (let x = 0; x < width; x += 50) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    
+    // Horizontal lines
+    for (let y = 0; y < height; y += 50) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
     }
   }
 }

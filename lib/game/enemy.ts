@@ -2,272 +2,334 @@ import { Vector2D } from './utils';
 import { Bullet } from './bullet';
 import { Sprite } from './sprite';
 
-export type EnemyType = 'standard' | 'spinner' | 'boss';
-export type MovementPattern = 'linear' | 'sine' | 'circle' | 'zigzag';
-export type BulletPattern = 'single' | 'spread' | 'circle' | 'spiral';
+export enum EnemyType {
+  BASIC = 'basic',
+  SHOOTER = 'shooter',
+  SPINNER = 'spinner',
+  BOSS = 'boss'
+}
 
 export interface EnemyOptions {
   position: Vector2D;
-  type: EnemyType;
+  size: number;
   health: number;
   speed: number;
-  size: number;
+  type: EnemyType;
   scoreValue: number;
-  movementPattern: MovementPattern;
-  bulletPattern: BulletPattern;
-  fireRate: number; // Bullets per second
-  bulletSpeed: number;
-  bulletDamage: number;
+  bulletSpeed?: number;
+  fireRate?: number; // Bullets per second
+  movementPattern?: string;
 }
 
 export class Enemy {
   position: Vector2D;
-  velocity: Vector2D = { x: 0, y: 0 };
-  type: EnemyType;
+  size: number;
   health: number;
   maxHealth: number;
   speed: number;
-  size: number;
+  type: EnemyType;
   scoreValue: number;
-  movementPattern: MovementPattern;
-  bulletPattern: BulletPattern;
-  fireRate: number;
   bulletSpeed: number;
-  bulletDamage: number;
-  
-  active: boolean = true;
+  fireRate: number;
   timeSinceLastShot: number = 0;
-  movementTime: number = 0; // Tracks time for movement patterns
+  movementPattern: string;
+  movementTime: number = 0;
   sprite: Sprite;
+  hitRadius: number;
+  isActive: boolean = true;
+  
+  // Animation properties
+  rotation: number = 0;
+  scale: number = 1;
+  opacity: number = 1;
   
   constructor(options: EnemyOptions) {
     this.position = { ...options.position };
-    this.type = options.type;
+    this.size = options.size;
     this.health = options.health;
     this.maxHealth = options.health;
     this.speed = options.speed;
-    this.size = options.size;
+    this.type = options.type;
     this.scoreValue = options.scoreValue;
-    this.movementPattern = options.movementPattern;
-    this.bulletPattern = options.bulletPattern;
-    this.fireRate = options.fireRate;
-    this.bulletSpeed = options.bulletSpeed;
-    this.bulletDamage = options.bulletDamage;
+    this.bulletSpeed = options.bulletSpeed || 200;
+    this.fireRate = options.fireRate || 0.5;
+    this.movementPattern = options.movementPattern || 'linear';
+    this.hitRadius = this.size / 2;
     
-    // Setup initial velocity based on movement pattern
-    this.initializeMovement();
-    
-    // Set sprite based on enemy type
-    let spriteId: string;
-    switch (this.type) {
-      case 'spinner':
-        spriteId = "#enemy-spinner";
-        break;
-      case 'boss':
-        spriteId = "#enemy-boss";
-        break;
-      case 'standard':
-      default:
-        spriteId = "#enemy-standard";
-        break;
-    }
-    
+    // Set up sprite based on enemy type
+    const spriteId = this.getSpriteId();
     this.sprite = new Sprite(spriteId, { width: this.size, height: this.size });
   }
   
-  private initializeMovement(): void {
-    // Set initial velocity based on movement pattern
-    switch (this.movementPattern) {
-      case 'linear':
-        this.velocity = { x: 0, y: 1 }; // Move straight down
-        break;
-      case 'sine':
-        this.velocity = { x: 0, y: 1 }; // Initial direction, will be modified in update
-        break;
-      case 'circle':
-        this.velocity = { x: 1, y: 0 }; // Initial direction, will be modified in update
-        break;
-      case 'zigzag':
-        this.velocity = { x: 1, y: 0.5 }; // Initial direction, will be modified in update
-        break;
+  private getSpriteId(): string {
+    switch (this.type) {
+      case EnemyType.BASIC:
+        return "#enemy-standard";
+      case EnemyType.SHOOTER:
+        return "#enemy-shooter";
+      case EnemyType.SPINNER:
+        return "#enemy-spinner";
+      case EnemyType.BOSS:
+        return "#enemy-boss";
+      default:
+        return "#enemy-standard";
     }
   }
   
-  update(deltaTime: number, canvasWidth: number): void {
-    // Update position and movement pattern
-    this.updateMovement(deltaTime, canvasWidth);
-    
-    // Update shooting timer
+  update(deltaTime: number, canvasWidth: number, canvasHeight: number): void {
+    // Update timers
     this.timeSinceLastShot += deltaTime;
-  }
-  
-  private updateMovement(deltaTime: number, canvasWidth: number): void {
     this.movementTime += deltaTime;
     
-    // Apply movement pattern
+    // Update animation properties
+    this.updateAnimation(deltaTime);
+    
+    // Update position based on movement pattern
+    this.updateMovement(deltaTime, canvasWidth, canvasHeight);
+    
+    // Check if enemy is out of bounds
+    if (this.position.y > canvasHeight + this.size) {
+      this.isActive = false;
+    }
+  }
+  
+  private updateAnimation(deltaTime: number): void {
+    // Update rotation for spinner enemies
+    if (this.type === EnemyType.SPINNER) {
+      this.rotation += deltaTime * 2; // Rotate 2 radians per second
+    }
+    
+    // Pulse scale for boss enemies
+    if (this.type === EnemyType.BOSS) {
+      this.scale = 1 + Math.sin(this.movementTime * 2) * 0.05;
+    }
+  }
+  
+  private updateMovement(deltaTime: number, canvasWidth: number, canvasHeight: number): void {
     switch (this.movementPattern) {
       case 'linear':
-        // Simple linear movement, no changes needed
+        // Simple downward movement
+        this.position.y += this.speed * deltaTime;
         break;
+        
       case 'sine':
-        // Sine wave movement pattern
-        const frequency = 2; // Oscillations per second
-        const amplitude = 100; // Maximum horizontal movement
-        
-        // Calculate horizontal position using sine function
-        const centerX = this.position.x; // Current x position as center
-        const offsetX = amplitude * Math.sin(this.movementTime * frequency * Math.PI);
-        
-        // Apply sine wave movement to x velocity
-        this.velocity.x = offsetX - centerX;
+        // Sine wave movement
+        this.position.y += this.speed * 0.7 * deltaTime;
+        this.position.x += Math.sin(this.movementTime * 2) * this.speed * deltaTime;
         break;
+        
+      case 'zigzag':
+        // Zigzag movement
+        this.position.y += this.speed * 0.8 * deltaTime;
+        
+        const zigzagPeriod = 2; // Time to complete one zigzag
+        const zigzagPhase = (this.movementTime % zigzagPeriod) / zigzagPeriod;
+        
+        if (zigzagPhase < 0.5) {
+          this.position.x += this.speed * deltaTime;
+        } else {
+          this.position.x -= this.speed * deltaTime;
+        }
+        break;
+        
       case 'circle':
-        // Circular movement pattern
-        const radius = 80; // Radius of circular path
+        // Circular movement
+        const centerX = this.position.x;
+        const radius = 50;
         const angularSpeed = 1; // Radians per second
         
-        // Calculate position on circle
-        const angle = this.movementTime * angularSpeed;
-        const circleX = Math.cos(angle) * radius;
-        const circleY = Math.sin(angle) * radius;
-        
-        // Update velocity to move toward the next point on the circle
-        // while continuing downward
-        this.velocity.x = circleX;
-        this.velocity.y = 0.5 + Math.abs(circleY * 0.01); // Add slight vertical movement
+        this.position.x = centerX + Math.cos(this.movementTime * angularSpeed) * radius;
+        this.position.y += this.speed * 0.5 * deltaTime;
         break;
-      case 'zigzag':
-        // Zigzag movement pattern
-        const zigzagPeriod = 2; // Time to complete one zigzag
-        const phase = (this.movementTime % zigzagPeriod) / zigzagPeriod;
         
-        // Determine direction based on phase
-        if (phase < 0.5) {
-          this.velocity.x = 1; // Move right
+      case 'boss':
+        // Boss movement - slow side to side at the top
+        const amplitude = canvasWidth * 0.4;
+        const period = 5; // Time to complete one full movement
+        
+        // Keep boss at the top area
+        if (this.position.y < 100) {
+          this.position.y += this.speed * 0.5 * deltaTime;
         } else {
-          this.velocity.x = -1; // Move left
+          this.position.y = 100;
         }
         
-        // Ensure enemy stays within screen bounds
-        if (this.position.x < this.size) {
-          this.velocity.x = Math.abs(this.velocity.x); // Force right movement
-        } else if (this.position.x > canvasWidth - this.size) {
-          this.velocity.x = -Math.abs(this.velocity.x); // Force left movement
-        }
+        // Move side to side
+        this.position.x = canvasWidth / 2 + Math.sin(this.movementTime * (2 * Math.PI / period)) * amplitude;
         break;
     }
     
-    // Apply velocity to position
-    this.position.x += this.velocity.x * this.speed * deltaTime;
-    this.position.y += this.velocity.y * this.speed * deltaTime;
+    // Keep enemy within canvas bounds
+    this.position.x = Math.max(this.size / 2, Math.min(canvasWidth - this.size / 2, this.position.x));
   }
   
   canShoot(): boolean {
     return this.timeSinceLastShot >= 1 / this.fireRate;
   }
   
-  shoot(): Bullet[] {
+  shoot(playerPosition: Vector2D): Bullet[] {
     this.timeSinceLastShot = 0;
-    
-    // Create bullets based on bullet pattern
     const bullets: Bullet[] = [];
     
-    switch (this.bulletPattern) {
-      case 'single':
-        // Single bullet straight down
-        bullets.push(this.createBullet({ x: 0, y: 1 }));
+    // Different bullet patterns based on enemy type
+    switch (this.type) {
+      case EnemyType.SHOOTER:
+        // Aimed shot at player
+        const dirToPlayer = {
+          x: playerPosition.x - this.position.x,
+          y: playerPosition.y - this.position.y
+        };
+        
+        // Normalize direction
+        const magnitude = Math.sqrt(dirToPlayer.x * dirToPlayer.x + dirToPlayer.y * dirToPlayer.y);
+        const normalizedDir = {
+          x: dirToPlayer.x / magnitude,
+          y: dirToPlayer.y / magnitude
+        };
+        
+        bullets.push(
+          new Bullet({
+            position: { x: this.position.x, y: this.position.y + this.size / 2 },
+            velocity: normalizedDir,
+            radius: 5,
+            damage: 1,
+            speed: this.bulletSpeed,
+            isPlayerBullet: false,
+          })
+        );
         break;
-      case 'spread':
-        // Three bullets in a spread pattern
-        bullets.push(this.createBullet({ x: -0.3, y: 0.95 }));
-        bullets.push(this.createBullet({ x: 0, y: 1 }));
-        bullets.push(this.createBullet({ x: 0.3, y: 0.95 }));
-        break;
-      case 'circle':
-        // Bullets in a circle pattern
-        const bulletCount = 8;
-        for (let i = 0; i < bulletCount; i++) {
-          const angle = (i / bulletCount) * Math.PI * 2;
-          bullets.push(this.createBullet({
-            x: Math.cos(angle),
-            y: Math.sin(angle)
-          }));
+        
+      case EnemyType.SPINNER:
+        // Spiral pattern - 4 bullets in different directions
+        for (let i = 0; i < 4; i++) {
+          const angle = this.rotation + (i * Math.PI / 2);
+          bullets.push(
+            new Bullet({
+              position: { x: this.position.x, y: this.position.y },
+              velocity: { x: Math.cos(angle), y: Math.sin(angle) },
+              radius: 4,
+              damage: 1,
+              speed: this.bulletSpeed * 0.8,
+              isPlayerBullet: false,
+            })
+          );
         }
         break;
-      case 'spiral':
-        // Spiral of bullets (will be controlled by the bullet pattern)
-        for (let i = 0; i < 3; i++) {
-          const angle = (this.movementTime * 2 + i * (Math.PI * 2 / 3)) % (Math.PI * 2);
-          const bullet = this.createBullet({
-            x: Math.cos(angle),
-            y: Math.sin(angle)
-          });
-          bullet.pattern = 'spiral';
-          bullets.push(bullet);
+        
+      case EnemyType.BOSS:
+        // Boss pattern - multiple bullets including aimed shot
+        const toPlayer = {
+          x: playerPosition.x - this.position.x,
+          y: playerPosition.y - this.position.y
+        };
+        const mag = Math.sqrt(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
+        const normalized = {
+          x: toPlayer.x / mag,
+          y: toPlayer.y / mag
+        };
+        
+        // Center shot aimed at player
+        bullets.push(
+          new Bullet({
+            position: { x: this.position.x, y: this.position.y + this.size / 2 },
+            velocity: normalized,
+            radius: 6,
+            damage: 2,
+            speed: this.bulletSpeed * 1.2,
+            isPlayerBullet: false,
+          })
+        );
+        
+        // Side shots
+        for (let i = -2; i <= 2; i++) {
+          if (i === 0) continue; // Skip center (already added)
+          
+          const spreadAngle = i * 0.2; // Spread in radians
+          const rotatedVelocity = {
+            x: normalized.x * Math.cos(spreadAngle) - normalized.y * Math.sin(spreadAngle),
+            y: normalized.x * Math.sin(spreadAngle) + normalized.y * Math.cos(spreadAngle)
+          };
+          
+          bullets.push(
+            new Bullet({
+              position: { x: this.position.x, y: this.position.y + this.size / 2 },
+              velocity: rotatedVelocity,
+              radius: 4,
+              damage: 1,
+              speed: this.bulletSpeed,
+              isPlayerBullet: false,
+            })
+          );
         }
+        break;
+        
+      default:
+        // Basic enemy - simple downward shot
+        bullets.push(
+          new Bullet({
+            position: { x: this.position.x, y: this.position.y + this.size / 2 },
+            velocity: { x: 0, y: 1 },
+            radius: 4,
+            damage: 1,
+            speed: this.bulletSpeed,
+            isPlayerBullet: false,
+          })
+        );
         break;
     }
     
     return bullets;
   }
   
-  private createBullet(velocity: Vector2D): Bullet {
-    // Normalize velocity
-    const magnitude = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-    velocity.x /= magnitude;
-    velocity.y /= magnitude;
+  takeDamage(damage: number): boolean {
+    this.health -= damage;
     
-    // Create bullet
-    return new Bullet({
-      position: { x: this.position.x, y: this.position.y + this.size / 2 },
-      velocity,
-      radius: 4, // Size of the bullet
-      damage: this.bulletDamage,
-      speed: this.bulletSpeed,
-      isPlayerBullet: false,
-      lifespan: 5, // 5 seconds lifespan
-    });
+    // Flash effect when taking damage
+    this.scale = 1.2;
+    setTimeout(() => {
+      this.scale = 1;
+    }, 100);
+    
+    // Check if enemy is destroyed
+    if (this.health <= 0) {
+      this.isActive = false;
+      return true;
+    }
+    return false;
   }
   
-  takeDamage(amount: number): void {
-    this.health -= amount;
-    if (this.health <= 0) {
-      this.active = false;
-    }
+  isOutOfBounds(canvasHeight: number): boolean {
+    // Check if enemy has moved below the canvas
+    return this.position.y > canvasHeight + this.size;
   }
   
   render(ctx: CanvasRenderingContext2D): void {
-    // Draw the sprite
-    this.sprite.render(ctx, this.position.x, this.position.y);
+    ctx.save();
     
-    // Draw health bar for boss type enemies
-    if (this.type === 'boss') {
+    // Apply transformations
+    ctx.translate(this.position.x, this.position.y);
+    ctx.rotate(this.rotation);
+    ctx.scale(this.scale, this.scale);
+    ctx.globalAlpha = this.opacity;
+    
+    // Draw sprite
+    this.sprite.render(ctx, -this.size / 2, -this.size / 2);
+    
+    // Draw health bar for bosses and larger enemies
+    if (this.type === EnemyType.BOSS || this.size > 50) {
       const healthBarWidth = this.size;
-      const healthBarHeight = 6;
+      const healthBarHeight = 5;
       const healthPercentage = this.health / this.maxHealth;
       
-      // Background of health bar
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(
-        this.position.x - healthBarWidth / 2,
-        this.position.y - this.size / 2 - 15,
-        healthBarWidth,
-        healthBarHeight
-      );
+      // Background
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+      ctx.fillRect(-healthBarWidth / 2, -this.size / 2 - 10, healthBarWidth, healthBarHeight);
       
-      // Health bar fill
-      ctx.fillStyle = '#FF3366';
-      ctx.fillRect(
-        this.position.x - healthBarWidth / 2,
-        this.position.y - this.size / 2 - 15,
-        healthBarWidth * healthPercentage,
-        healthBarHeight
-      );
+      // Health
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+      ctx.fillRect(-healthBarWidth / 2, -this.size / 2 - 10, healthBarWidth * healthPercentage, healthBarHeight);
     }
-  }
-  
-  // Check if enemy is outside bottom of the canvas
-  isOutOfBounds(canvasHeight: number): boolean {
-    return this.position.y > canvasHeight + this.size;
+    
+    ctx.restore();
   }
 }

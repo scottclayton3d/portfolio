@@ -3,6 +3,14 @@ export interface SpriteSize {
     height: number;
   }
   
+  export interface SpriteOptions {
+    width: number;
+    height: number;
+    frameCount?: number;
+    frameRate?: number;
+    loop?: boolean;
+  }
+  
   export class Sprite {
     private svgId: string;
     private width: number;

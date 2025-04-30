@@ -20,7 +20,10 @@ export class Player {
   hitRadius: number;
   isInvulnerable: boolean = false;
   invulnerabilityTime: number = 0;
+  invulnerabilityTimer: number = 0;
   sprite: Sprite;
+  thrusterAnimation: number = 0;
+  powerLevel: number = 1; // Power level affects bullet patterns
   
   constructor(options: PlayerOptions) {
     this.position = { ...options.position };
@@ -35,7 +38,7 @@ export class Player {
   }
   
   move(dirX: number, dirY: number, deltaTime: number, canvasWidth: number, canvasHeight: number): void {
-    // Update timer
+    // Update timers
     this.timeSinceLastShot += deltaTime;
     
     // Update invulnerability
@@ -44,6 +47,12 @@ export class Player {
       if (this.invulnerabilityTime <= 0) {
         this.isInvulnerable = false;
       }
+    }
+    
+    // Update thruster animation
+    this.thrusterAnimation += deltaTime * 10;
+    if (this.thrusterAnimation > 100) {
+      this.thrusterAnimation = 0;
     }
     
     // Calculate movement
@@ -76,54 +85,161 @@ export class Player {
   
   shoot(): Bullet[] {
     this.timeSinceLastShot = 0;
+    const bullets: Bullet[] = [];
     
-    // Create bullet
-    return [
-      new Bullet({
-        position: { x: this.position.x - 10, y: this.position.y - this.size / 2 },
-        velocity: { x: 0, y: -1 },
-        radius: 4,
-        damage: 1,
-        speed: this.bulletSpeed,
-        isPlayerBullet: true,
-      }),
-      new Bullet({
-        position: { x: this.position.x + 10, y: this.position.y - this.size / 2 },
-        velocity: { x: 0, y: -1 },
-        radius: 4,
-        damage: 1,
-        speed: this.bulletSpeed,
-        isPlayerBullet: true,
-      })
-    ];
-  }
-  
-  setInvulnerable(duration: number): void {
-    this.isInvulnerable = true;
-    this.invulnerabilityTime = duration;
+    // Different bullet patterns based on power level
+    switch (this.powerLevel) {
+      case 1:
+        // Basic dual shot
+        bullets.push(
+          new Bullet({
+            position: { x: this.position.x - 10, y: this.position.y - this.size / 2 },
+            velocity: { x: 0, y: -1 },
+            radius: 4,
+            damage: 1,
+            speed: this.bulletSpeed,
+            isPlayerBullet: true,
+          }),
+          new Bullet({
+            position: { x: this.position.x + 10, y: this.position.y - this.size / 2 },
+            velocity: { x: 0, y: -1 },
+            radius: 4,
+            damage: 1,
+            speed: this.bulletSpeed,
+            isPlayerBullet: true,
+          })
+        );
+        break;
+        
+      case 2:
+        // Triple shot
+        bullets.push(
+          new Bullet({
+            position: { x: this.position.x, y: this.position.y - this.size / 2 },
+            velocity: { x: 0, y: -1 },
+            radius: 4,
+            damage: 1,
+            speed: this.bulletSpeed,
+            isPlayerBullet: true,
+          }),
+          new Bullet({
+            position: { x: this.position.x - 15, y: this.position.y - this.size / 3 },
+            velocity: { x: -0.1, y: -0.9 },
+            radius: 4,
+            damage: 1,
+            speed: this.bulletSpeed * 0.9,
+            isPlayerBullet: true,
+          }),
+          new Bullet({
+            position: { x: this.position.x + 15, y: this.position.y - this.size / 3 },
+            velocity: { x: 0.1, y: -0.9 },
+            radius: 4,
+            damage: 1,
+            speed: this.bulletSpeed * 0.9,
+            isPlayerBullet: true,
+          })
+        );
+        break;
+        
+      case 3:
+        // Quad shot with increased damage
+        bullets.push(
+          new Bullet({
+            position: { x: this.position.x - 5, y: this.position.y - this.size / 2 },
+            velocity: { x: 0, y: -1 },
+            radius: 5,
+            damage: 2,
+            speed: this.bulletSpeed,
+            isPlayerBullet: true,
+          }),
+          new Bullet({
+            position: { x: this.position.x + 5, y: this.position.y - this.size / 2 },
+            velocity: { x: 0, y: -1 },
+            radius: 5,
+            damage: 2,
+            speed: this.bulletSpeed,
+            isPlayerBullet: true,
+          }),
+          new Bullet({
+            position: { x: this.position.x - 20, y: this.position.y - this.size / 4 },
+            velocity: { x: -0.2, y: -0.8 },
+            radius: 4,
+            damage: 1,
+            speed: this.bulletSpeed * 0.85,
+            isPlayerBullet: true,
+          }),
+          new Bullet({
+            position: { x: this.position.x + 20, y: this.position.y - this.size / 4 },
+            velocity: { x: 0.2, y: -0.8 },
+            radius: 4,
+            damage: 1,
+            speed: this.bulletSpeed * 0.85,
+            isPlayerBullet: true,
+          })
+        );
+        break;
+        
+      default:
+        // Fallback to basic shot if power level is invalid
+        bullets.push(
+          new Bullet({
+            position: { x: this.position.x, y: this.position.y - this.size / 2 },
+            velocity: { x: 0, y: -1 },
+            radius: 4,
+            damage: 1,
+            speed: this.bulletSpeed,
+            isPlayerBullet: true,
+          })
+        );
+        break;
+    }
+    
+    return bullets;
   }
   
   render(ctx: CanvasRenderingContext2D): void {
-    // Don't render if game is not active
+    ctx.save();
     
-    // Handle invulnerability blinking
+    // Apply position
+    ctx.translate(this.position.x, this.position.y);
+    
+    // Draw player ship
     if (this.isInvulnerable) {
-      // Make player blink when invulnerable
-      const blinksPerSecond = 8;
-      const shouldShow = Math.floor(this.invulnerabilityTime * blinksPerSecond) % 2 === 0;
-      
-      if (!shouldShow) {
-        return;
+      // Flashing effect when invulnerable
+      const flashRate = 5; // Flashes per second
+      if (Math.sin(this.invulnerabilityTimer * flashRate * Math.PI) > 0) {
+        ctx.globalAlpha = 0.5;
       }
     }
     
-    // Draw player sprite
-    this.sprite.render(ctx, this.position.x, this.position.y);
+    // If we have a sprite, use it
+    if (this.sprite) {
+      this.sprite.render(ctx, -this.size / 2, -this.size / 2);
+    } else {
+      // Fallback to a simple triangle ship
+      ctx.fillStyle = '#00FFFF';
+      ctx.beginPath();
+      ctx.moveTo(0, -this.size / 2);
+      ctx.lineTo(-this.size / 2, this.size / 2);
+      ctx.lineTo(this.size / 2, this.size / 2);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Add some details
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.rect(-this.size / 4, 0, this.size / 2, this.size / 4);
+      ctx.fill();
+    }
     
-    // Draw hit box for debugging (uncomment if needed)
-    // ctx.beginPath();
-    // ctx.arc(this.position.x, this.position.y, this.hitRadius, 0, Math.PI * 2);
-    // ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-    // ctx.stroke();
+    // Debug: draw hit radius
+    if (process.env.NODE_ENV === 'development') {
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.hitRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    
+    ctx.restore();
   }
 }
