@@ -85,7 +85,7 @@ export class Enemy {
     this.updateAnimation(deltaTime);
     
     // Update position based on movement pattern
-    this.updateMovement(deltaTime, canvasWidth, _canvasHeight);
+    this.updateMovement(deltaTime, canvasWidth);
 
     // Removed: out-of-bounds check here, handled by isOutOfBounds elsewhere
   }
@@ -102,7 +102,7 @@ export class Enemy {
     }
   }
   
-  private updateMovement(deltaTime: number, canvasWidth: number, canvasHeight: number): void {
+  private updateMovement(deltaTime: number, canvasWidth: number): void {
     switch (this.movementPattern) {
       case 'linear':
         // Simple downward movement
