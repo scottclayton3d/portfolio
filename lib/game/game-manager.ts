@@ -219,7 +219,7 @@ export class GameManager {
   private updateEnemies(deltaTime: number): void {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
-      enemy.update(deltaTime, this.canvas.width, this.canvas.height);
+      enemy.update(deltaTime, this.canvas.width);
       
       // Enemy shooting
       if (enemy.canShoot() && this.player) {
