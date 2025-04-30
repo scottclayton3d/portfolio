@@ -65,8 +65,8 @@ const GameCanvas = () => {
       const { width, height } = container.getBoundingClientRect();
       
       // Update canvas size
-      canvasRef.current.width = width;
-      canvasRef.current.height = height;
+      canvasRef.current.width = width * 0.75;
+      canvasRef.current.height = height * 0.75;
       
       // Update game manager
       if (typeof gameManagerRef.current.handleResize === 'function') {
@@ -91,6 +91,8 @@ const GameCanvas = () => {
       ref={canvasRef}
       className="absolute top-0 left-0 w-full h-full"
       style={{ backgroundColor: '#1A1A1A' }}
+      width="75%"
+      height="700px"
     />
   );
 };

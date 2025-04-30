@@ -1,4 +1,4 @@
-import { Vector2D } from './utils';
+import { Vector2D } from './utils';       
 import { Sprite } from './sprite';
 
 export interface BulletOptions {
