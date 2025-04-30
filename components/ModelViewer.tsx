@@ -1,93 +1,215 @@
-import { useRef, useState, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Html } from '@react-three/drei';
-import { Loader2 } from 'lucide-react';
-import * as THREE from 'three';
+/* eslint-disable react/no-unknown-property */
+import React, { Suspense, useMemo, useRef, useState } from "react";
+import {
+  Canvas,
+  useFrame,
+  useThree,
+} from "@react-three/fiber";
+import {
+  Environment,
+  Html,
+  Loader as DreiLoader,
+  OrbitControls,
+  Stage,
+  useGLTF,
+  useAnimations,
+} from "@react-three/drei";
+import { motion, AnimatePresence } from "framer-motion";
+import * as THREE from "three";
 
-interface ModelProps {
-  modelPath: string;
+/* ---------- Public prop types -------------------------------- */
+export interface PlasmicHotspot {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  title: string;
+  description?: string;
+  color?: string;
 }
 
-function Model({ modelPath }: ModelProps) {
-  // Create a simple rotating box instead of loading GLTF
+export interface ModelViewerWithHotspotsProps {
+  src: string;
+  hotspots?: PlasmicHotspot[];
+  envPreset?: "studio" | "city" | "sunset" | "dawn" | "night" | "forest";
+  autoRotate?: boolean;
+  height?: string;          // “500px”, “60vh”, etc.
+}
+
+/* ---------- Internal GLTF model ------------------------------ */
+const GLTFModel: React.FC<{ src: string }> = ({ src }) => {
+  const gltf = useGLTF(src) as unknown as ReturnType<typeof useGLTF> & {
+    animations: THREE.AnimationClip[];
+  };
+  const { scene, animations } = Array.isArray(gltf) ? gltf[0] : gltf;
+  const { mixer } = useAnimations(animations, scene);
+
+  React.useEffect(() => {
+    if (animations.length) mixer?.clipAction(animations[0])?.play();
+  }, [animations, mixer]);
+
+  return <primitive object={scene} dispose={null} />;
+};
+
+/* ---------- Hotspot mesh ------------------------------------- */
+interface HotspotMeshProps {
+  data: PlasmicHotspot;
+  isActive: boolean;
+  setActive: (id: string | null) => void;
+}
+
+const HotspotMesh: React.FC<HotspotMeshProps> = ({
+  data,
+  isActive,
+  setActive,
+}) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  
-  useFrame((state) => {
+  const [hovered, setHovered] = useState(false);
+
+  const toggle = () => setActive(isActive ? null : data.id);
+
+  /* tiny pulse animation */
+  useFrame(({ clock }) => {
     if (!meshRef.current) return;
-    
-    // Add rotation animation
-    const t = state.clock.getElapsedTime();
-    meshRef.current.rotation.x = Math.sin(t / 4) * 0.3;
-    meshRef.current.rotation.y = t * 0.2;
+    const s = isActive ? 1.25 : 1 + Math.sin(clock.getElapsedTime() * 3) * 0.1;
+    meshRef.current.scale.setScalar(s);
   });
 
   return (
-    <mesh ref={meshRef}>
-      <boxGeometry args={[1.5, 1.5, 1.5]} />
-      <meshStandardMaterial color="#FF3366" metalness={0.8} roughness={0.2} />
-    </mesh>
+    <group position={[data.x, data.y, data.z]}>
+      {/* visual sphere */}
+      <mesh
+        ref={meshRef}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+        onClick={toggle}
+      >
+        <sphereGeometry args={[0.05, 16, 16]} />
+        <meshStandardMaterial
+          color={data.color || "#ff4060"}
+          emissive={hovered || isActive ? "#ffffff" : "#000000"}
+          emissiveIntensity={hovered || isActive ? 0.7 : 0}
+        />
+      </mesh>
+
+      {/* keyboard-/screen-reader-friendly invisible button */}
+      <Html transform occlude>
+        <button
+          style={{
+            all: "unset",
+            width: 14,
+            height: 14,
+            cursor: "pointer",
+          }}
+          aria-label={data.title}
+          onClick={toggle}
+          onKeyDown={(e) => e.key === "Enter" && toggle()}
+        />
+      </Html>
+
+      {/* info panel */}
+      <AnimatePresence>
+        {isActive && (
+          <Html
+            transform
+            position={[0, 0.15, 0]}
+            distanceFactor={8}
+            occlude
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 15 }}
+              transition={{ type: "spring", stiffness: 220, damping: 18 }}
+              style={{
+                minWidth: 220,
+                maxWidth: 300,
+                background: "rgba(20,20,20,.95)",
+                color: "#fff",
+                padding: "1rem 1.5rem 1rem 1rem",
+                borderRadius: 8,
+                position: "relative",
+                fontSize: "0.9rem",
+                lineHeight: 1.45,
+                boxShadow: "0 6px 20px rgba(0,0,0,.45)",
+                backdropFilter: "blur(3px)",
+              }}
+              role="dialog"
+            >
+              <h4 style={{ margin: "0 1.5rem 0.5rem 0" }}>{data.title}</h4>
+              <div dangerouslySetInnerHTML={{ __html: data.description || "" }} />
+              <button
+                onClick={() => setActive(null)}
+                style={{
+                  all: "unset",
+                  position: "absolute",
+                  top: 6,
+                  right: 8,
+                  cursor: "pointer",
+                  color: "#ccc",
+                  fontSize: 16,
+                }}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </motion.div>
+          </Html>
+        )}
+      </AnimatePresence>
+    </group>
   );
-}
+};
 
-// Fallback component that uses a different 3D model if specified model fails to load
-function FallbackModel() {
-  // Use a built-in geometry as fallback
-  return (
-    <mesh>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#FF3366" />
-    </mesh>
+/* ---------- Main viewer -------------------------------------- */
+export default function ModelViewerWithHotspots({
+  src,
+  hotspots = [],
+  envPreset = "studio",
+  autoRotate = true,
+  height = "500px",
+}: ModelViewerWithHotspotsProps) {
+  const style = useMemo(
+    () => ({ width: "100%", height, position: "relative" as const }),
+    [height]
   );
-}
-
-// Loading component
-function ModelLoader() {
-  return (
-    <Html center>
-      <div className="flex flex-col items-center justify-center text-white">
-        <Loader2 className="h-8 w-8 animate-spin mb-2 text-accent" />
-        <p className="text-sm font-opensans">Loading 3D model...</p>
-      </div>
-    </Html>
-  );
-}
-
-interface ModelViewerProps {
-  modelPath: string;
-  height?: string;
-}
-
-export default function ModelViewer({ modelPath, height = '400px' }: ModelViewerProps) {
-  const [isLoading, setIsLoading] = useState(true);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   return (
-    <div 
-      className="relative bg-primary rounded-lg overflow-hidden border border-secondary"
-      style={{ height }}
-    >
-      <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-        <ambientLight intensity={0.5} />
-        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />
-        <Suspense fallback={<ModelLoader />}>
-          <Model modelPath={modelPath} />
-          <directionalLight position={[5, 5, 5]} intensity={1} />
-          <directionalLight position={[-5, -5, -5]} intensity={0.2} />
-          <OrbitControls 
-            enablePan={true} 
-            enableZoom={true} 
-            enableRotate={true}
-            minDistance={2}
-            maxDistance={10}
+    <div style={style}>
+      <Canvas shadows dpr={[1, 2]} camera={{ position: [3, 2, 3], fov: 35 }}>
+        <Suspense fallback={null}>
+          <Stage
+            preset="rembrandt"
+            environment={envPreset}
+            intensity={1}
+            adjustCamera
+            shadows
+          >
+            <GLTFModel src={src} />
+            {hotspots.map((h) => (
+              <HotspotMesh
+                key={h.id}
+                data={h}
+                isActive={activeId === h.id}
+                setActive={setActiveId}
+              />
+            ))}
+          </Stage>
+
+          <OrbitControls
+            makeDefault
+            enableDamping
+            autoRotate={autoRotate}
+            autoRotateSpeed={1.4}
           />
+          <Environment preset={envPreset} />
         </Suspense>
       </Canvas>
-      
-      {/* Instructions overlay */}
-      <div className="absolute bottom-2 left-2 right-2 bg-black bg-opacity-70 text-white text-xs p-2 rounded">
-        <p className="text-center">
-          <span className="text-accent font-semibold">INTERACTIVE:</span> Click and drag to rotate. Scroll to zoom. Shift+drag to pan.
-        </p>
-      </div>
+      <DreiLoader />
     </div>
   );
 }
+
+/* ---- Preload helper (optional) ------------------------------ */
+useGLTF.preload("models/p99.gltf");

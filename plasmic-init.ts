@@ -1,4 +1,5 @@
 import { initPlasmicLoader } from "@plasmicapp/loader-nextjs";
+import { registerComponent } from "@plasmicapp/host";
 import BulletHellGame from "./components/game/BulletHellGame";
 import ModelViewer3D from "./components/ui/ModelViewer3D";
 import ProjectCard from "./components/ui/ProjectCard";
@@ -6,6 +7,11 @@ import About from "./components/About";
 import Footer from "./components/Footer";
 import Hero from "./components/Hero";
 import Process from "./components/Process";
+import ModelViewerWithHotspots, {
+  PlasmicHotspot,
+} from "./components/ModelViewer";
+
+
 
 export const PLASMIC = initPlasmicLoader({
   projects: [
@@ -39,20 +45,27 @@ PLASMIC.registerComponent(BulletHellGame, {
 PLASMIC.registerComponent(ProjectCard, {
   name: 'ProjectCard',
   props: {
-    project: 'object',
-    className:'string',
+    /** Project title (displayed in overlay) */
+    title: 'string',
+    /** Image/Video source url – ignored when `customMedia` is provided */
+    cover: 'string',
+    /** 1–2 line description */
+    description: 'string',
+    /** CTA button label (e.g. “View project”) */
+    ctaLabel: 'string',
+    /** Destination URL for the CTA */
+    ctaHref: 'string',
+    /** Treat `cover` as video rather than image */
+    isVideo: 'boolean',
+    /** Extra className if you want to compose styles */
+    className: 'string',
   }
 });
 PLASMIC.registerComponent(ModelViewer3D, {
   name: 'ModelViewer3D',
   props: {
-    modelPath: 'string',
-    backgroundColor: 'string',
-    autoRotate: 'boolean',
+    modelUrl: 'string',
     className: 'string',
-    scale: 'number',
-    position: 'object',
-    rotation: 'object',
   }
 });
 PLASMIC.registerComponent(About, {
@@ -75,3 +88,39 @@ PLASMIC.registerComponent(Process, {
   props: {
   }
 });
+registerComponent(ModelViewerWithHotspots, {
+  name: "ModelViewerWithHotspots",
+  displayName: "3-D Model Viewer (hotspots)",
+  importPath: "./components/ModelViewer",
+  props: {
+    src: "string",
+    height: {
+      type: "string",
+      defaultValue: "500px",
+    },
+    autoRotate: "boolean",
+    envPreset: {
+      type: "choice",
+      options: ["studio", "city", "sunset", "dawn", "night", "forest"],
+      defaultValue: "studio",
+    },
+    hotspots: {
+      type: "array",
+      itemType: {
+        type: "object",
+        fields: {
+          id: "string",
+          x: "number",
+          y: "number",
+          z: "number",
+          title: "string",
+          description: "string",
+          color: {
+            type: "color"
+          }
+        }
+      },
+    },
+  },
+});
+/* Helper: show nice controls for the hotspots array  */
