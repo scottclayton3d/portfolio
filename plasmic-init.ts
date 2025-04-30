@@ -2,6 +2,10 @@ import { initPlasmicLoader } from "@plasmicapp/loader-nextjs";
 import BulletHellGame from "./components/game/BulletHellGame";
 import ModelViewer3D from "./components/ui/ModelViewer3D";
 import ProjectCard from "./components/ui/ProjectCard";
+import About from "./components/About";
+import Footer from "./components/Footer";
+import Hero from "./components/Hero";
+import Process from "./components/Process";
 
 export const PLASMIC = initPlasmicLoader({
   projects: [
@@ -49,5 +53,25 @@ PLASMIC.registerComponent(ModelViewer3D, {
     scale: 'number',
     position: 'object',
     rotation: 'object',
+  }
+});
+PLASMIC.registerComponent(About, {
+  name: 'About',
+  props: {
+  }
+});
+PLASMIC.registerComponent(Footer, {
+  name: 'Footer',
+  props: {
+  }
+});
+PLASMIC.registerComponent(Hero, {
+  name: 'Hero',
+  props: {
+  }
+});
+PLASMIC.registerComponent(Process, {
+  name: 'Process',
+  props: {
   }
 });
