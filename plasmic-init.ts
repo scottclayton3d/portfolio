@@ -2,11 +2,6 @@ import { initPlasmicLoader } from "@plasmicapp/loader-nextjs";
 import { registerComponent } from "@plasmicapp/host";
 import BulletHellGame from "./components/game/BulletHellGame";
 import ModelViewer3D from "./components/ui/ModelViewer3D";
-import ProjectCard from "./components/ui/ProjectCard";
-import About from "./components/About";
-import Footer from "./components/Footer";
-import Hero from "./components/Hero";
-import Process from "./components/Process";
 import ModelViewerWithHotspots, {
   PlasmicHotspot,
 } from "./components/ModelViewer";
@@ -42,50 +37,11 @@ PLASMIC.registerComponent(BulletHellGame, {
     className:'string',
   }
 });
-PLASMIC.registerComponent(ProjectCard, {
-  name: 'ProjectCard',
-  props: {
-    /** Project title (displayed in overlay) */
-    title: 'string',
-    /** Image/Video source url – ignored when `customMedia` is provided */
-    cover: 'string',
-    /** 1–2 line description */
-    description: 'string',
-    /** CTA button label (e.g. “View project”) */
-    ctaLabel: 'string',
-    /** Destination URL for the CTA */
-    ctaHref: 'string',
-    /** Treat `cover` as video rather than image */
-    isVideo: 'boolean',
-    /** Extra className if you want to compose styles */
-    className: 'string',
-  }
-});
 PLASMIC.registerComponent(ModelViewer3D, {
   name: 'ModelViewer3D',
   props: {
     modelUrl: 'string',
     className: 'string',
-  }
-});
-PLASMIC.registerComponent(About, {
-  name: 'About',
-  props: {
-  }
-});
-PLASMIC.registerComponent(Footer, {
-  name: 'Footer',
-  props: {
-  }
-});
-PLASMIC.registerComponent(Hero, {
-  name: 'Hero',
-  props: {
-  }
-});
-PLASMIC.registerComponent(Process, {
-  name: 'Process',
-  props: {
   }
 });
 registerComponent(ModelViewerWithHotspots, {
