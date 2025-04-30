@@ -3,7 +3,6 @@ import React, { Suspense, useMemo, useRef, useState } from "react";
 import {
   Canvas,
   useFrame,
-  useThree,
 } from "@react-three/fiber";
 import {
   Environment,
