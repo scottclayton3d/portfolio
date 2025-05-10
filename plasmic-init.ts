@@ -77,6 +77,9 @@ PLASMIC.registerComponent(ModelViewer3D, {
   props: {
     modelUrl: 'string',
     className: 'string',
+    cameraX: "number",
+    cameraY: "number",
+    cameraZ: "number",
   }
 });
 PLASMIC.registerComponent(Dock, {
