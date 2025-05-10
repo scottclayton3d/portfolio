@@ -9,6 +9,12 @@ import ASCIIText from "./components/asciText";
 import { UnicornStudioEmbed } from "./components/UnicornStudioEmbed";
 import Masonry from "./components/masonry";
 import GridMotion from "./components/gridMotion";
+import { m } from "framer-motion";
+import { DataGrid } from '@mui/x-data-grid';
+import KeyValueGrid from "./components/KeyValueGrid";
+import Carousel from "./components/carousel";
+import PixelTrail from "./components/pixelTrail";
+import GlitchText from "./components/glitchText";
 
 
 
@@ -187,4 +193,143 @@ PLASMIC.registerComponent(GridMotion, {
       defaultValue: "black",
     }
   }
+});
+PLASMIC.registerComponent(KeyValueGrid, {
+  name: "KeyValueGrid",
+  props: {
+    data: {
+      type: "array",
+      displayName: "Key-Value Data",
+      itemType: {
+        type: "object",
+        fields: {
+          key: { type: "string", displayName: "Key" },
+          value: { type: "string", displayName: "Value" }
+        }
+      },
+      defaultValue: [
+        { key: "Name", value: "John Doe" },
+        { key: "Role", value: "Developer" }
+      ]
+    },
+    className: {
+      type: "string",
+      displayName: "Class Name",
+      defaultValue: ""
+    },
+    style: {
+      type: "object",
+      displayName: "Style",
+      defaultValue: {}
+    }
+  }
+});
+PLASMIC.registerComponent(Carousel, {
+  name: "Carousel",
+  props: {
+    items: {
+      type: "array",
+      displayName: "Items",
+      itemType: {
+        type: "object",
+        fields: {
+          title: { type: "string", displayName: "Title" },
+          description: { type: "string", displayName: "Description" },
+          id: { type: "number", displayName: "ID" },
+          icon: { type: "slot", displayName: "Icon" }
+        }
+      },
+      defaultValue: [
+        { title: "Text Animations", description: "Cool text animations for your projects.", id: 1 },
+        { title: "Animations", description: "Smooth animations for your projects.", id: 2 },
+        { title: "Components", description: "Reusable components for your projects.", id: 3 },
+        { title: "Backgrounds", description: "Beautiful backgrounds and patterns for your projects.", id: 4 },
+        { title: "Common UI", description: "Common UI components are coming soon!", id: 5 }
+      ]
+    },
+    baseWidth: {
+      type: "number",
+      displayName: "Base Width",
+      defaultValue: 300
+    },
+    autoplay: {
+      type: "boolean",
+      displayName: "Autoplay",
+      defaultValue: false
+    },
+    autoplayDelay: {
+      type: "number",
+      displayName: "Autoplay Delay (ms)",
+      defaultValue: 3000
+    },
+    pauseOnHover: {
+      type: "boolean",
+      displayName: "Pause On Hover",
+      defaultValue: false
+    },
+    loop: {
+      type: "boolean",
+      displayName: "Loop",
+      defaultValue: false
+    },
+    round: {
+      type: "boolean",
+      displayName: "Round",
+      defaultValue: false
+    }
+  }
+});
+PLASMIC.registerComponent(PixelTrail, {
+  name: "PixelTrail",
+  props: {
+    gridSize: {
+      type: "number",
+      defaultValue: 40,
+    },
+    trailSize: {
+      type: "number",
+      defaultValue: 0.1,
+    },
+    maxAge: {
+      type: "number",
+      defaultValue: 250,
+    },
+    interpolate: {
+      type: "number",
+      defaultValue: 5,
+    },
+    color: {
+      type: "string",
+      defaultValue: "#ffffff",
+    },
+    className: {
+      type: "string",
+      defaultValue: "",
+    }
+  }
+});
+PLASMIC.registerComponent(GlitchText, {
+  name: "GlitchText",
+  props: {
+    children: {
+      type: "string",
+      defaultValue: "Glitch!",
+    },
+    speed: {
+      type: "number",
+      defaultValue: 0.5,
+    },
+    enableShadows: {
+      type: "boolean",
+      defaultValue: true,
+    },
+    enableOnHover: {
+      type: "boolean",
+      defaultValue: false,
+    },
+    className: {
+      type: "string",
+      defaultValue: "",
+    },
+  },
 });
