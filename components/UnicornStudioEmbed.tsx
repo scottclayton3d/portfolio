@@ -23,17 +23,17 @@ export const UnicornStudioEmbed: React.FC<UnicornStudioEmbedProps> = ({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if ((window as any).UnicornStudio?.isInitialized) return;
+    if (window.UnicornStudio?.isInitialized) return;
     const scriptId = "unicornstudio-embed-script";
     if (document.getElementById(scriptId)) return;
-    const script = document.createElement("script");
+    const script: HTMLScriptElement = document.createElement("script");
     script.id = scriptId;
     script.src = "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.20/dist/unicornStudio.umd.js";
     script.async = true;
     script.onload = () => {
-      if (!(window as any).UnicornStudio.isInitialized) {
-        (window as any).UnicornStudio.init();
-        (window as any).UnicornStudio.isInitialized = true;
+      if (!window.UnicornStudio.isInitialized) {
+        window.UnicornStudio.init();
+        window.UnicornStudio.isInitialized = true;
       }
     };
     (document.head || document.body).appendChild(script);
@@ -48,3 +48,12 @@ export const UnicornStudioEmbed: React.FC<UnicornStudioEmbedProps> = ({
     />
   );
 };
+
+declare global {
+  interface Window {
+    UnicornStudio: {
+      isInitialized: boolean;
+      init: () => void;
+    };
+  }
+}

@@ -5,7 +5,6 @@ interface ParticlesProps {
   particleCount?: number;
   particleSpread?: number;
   speed?: number;
-  particleColors?: string[];
   moveParticlesOnHover?: boolean;
   particleHoverFactor?: number;
   alphaParticles?: boolean;
@@ -93,7 +92,6 @@ const Particles: React.FC<ParticlesProps> = ({
   particleCount = 200,
   particleSpread = 10,
   speed = 0.1,
-  particleColors,
   moveParticlesOnHover = false,
   particleHoverFactor = 1,
   alphaParticles = false,
@@ -142,7 +140,7 @@ const Particles: React.FC<ParticlesProps> = ({
     const positions = new Float32Array(count * 3);
     const randoms = new Float32Array(count * 4);
     const colors = new Float32Array(count * 3);
-    const palette = particleColors && particleColors.length > 0 ? particleColors : defaultColors;
+    const palette = defaultColors;
 
     for (let i = 0; i < count; i++) {
       let x: number, y: number, z: number, len: number;
